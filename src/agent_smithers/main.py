@@ -1,5 +1,6 @@
+from try_it import do_something
 def main():
-    print("Hello from Agent Smithers!")
+    do_something()
 
 if __name__ == "__main__":
     main()
