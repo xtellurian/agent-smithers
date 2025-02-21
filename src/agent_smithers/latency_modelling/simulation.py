@@ -1,6 +1,7 @@
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Callable
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -17,9 +18,12 @@ from rich.progress import (
 
 @dataclass
 class SimulationParams:
-    num_workers: int
+    initial_workers: int
     service_time: int  # seconds
     duration: int  # seconds
+    worker_scaling_func: Callable[
+        [int, int], int
+    ]  # takes (queue_length, seconds), returns num_workers
     log_interval: int = 60  # Log detailed metrics every N seconds
 
 
@@ -45,6 +49,7 @@ class CelerySimulation:
         self.in_progress: list[Message] = []  # List of currently processing messages
         self.console = Console()
         self.queue_position = 0  # Track overall queue position
+        self.current_workers = params.initial_workers
 
     def _validate_inputs(self):
         if len(self.arrival_rate) != self.params.duration:
@@ -67,6 +72,7 @@ class CelerySimulation:
                 "mean_wait_time": 0.0,
                 "max_wait_time": 0.0,
                 "utilization": 0.0,
+                "num_workers": self.params.initial_workers,
             }
         )
         return df
@@ -79,6 +85,12 @@ class CelerySimulation:
             id=self.message_counter,
             arrival_time=current_time,
             queue_position=self.queue_position,
+        )
+
+    def _update_worker_count(self, queue_length: int, seconds_elapsed: int) -> None:
+        """Update number of workers based on scaling function"""
+        self.current_workers = self.params.worker_scaling_func(
+            queue_length, seconds_elapsed
         )
 
     def run(self) -> pd.DataFrame:
@@ -95,6 +107,9 @@ class CelerySimulation:
             for i in range(len(self.df)):
                 current_time = self.df.iloc[i]["timestamp"]
 
+                # Update worker count based on current queue length and time
+                self._update_worker_count(len(self.message_queue), i)
+
                 # Process completions
                 if i > 0:
                     completions = int(len(self.in_progress) / self.params.service_time)
@@ -106,8 +121,8 @@ class CelerySimulation:
                     self._create_message(current_time) for _ in range(new_arrivals)
                 ]
 
-                # Calculate available capacity
-                available_capacity = self.params.num_workers - len(self.in_progress)
+                # Calculate available capacity using current worker count
+                available_capacity = self.current_workers - len(self.in_progress)
 
                 # Process queue first (FIFO order guaranteed by deque)
                 while available_capacity > 0 and self.message_queue:
@@ -156,8 +171,9 @@ class CelerySimulation:
                 self.df.at[i, "in_queue"] = current_queue_length
                 self.df.at[i, "in_progress"] = len(self.in_progress)
                 self.df.at[i, "completed"] = completions if i > 0 else 0
+                self.df.at[i, "num_workers"] = self.current_workers
                 self.df.at[i, "utilization"] = (
-                    len(self.in_progress) / self.params.num_workers
+                    len(self.in_progress) / self.current_workers
                 )
 
                 # Log detailed metrics at intervals

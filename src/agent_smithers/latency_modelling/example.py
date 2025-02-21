@@ -71,6 +71,39 @@ def generate_spiky_traffic(
     return pd.Series(full_traffic, index=index, name="messages_per_second")
 
 
+class WorkerScaling:
+    def __init__(self, startup_delay: int = 20):
+        self.startup_delay = startup_delay
+        self.scale_up_time = None  # When we started scaling up
+        self.target_workers = 10  # Initial worker count
+        self.current_workers = 10  # Current active workers
+
+    def __call__(self, queue_length: int, seconds: int) -> int:
+        # Determine target worker count based on queue length
+        new_target = 45 if queue_length >= 50 else 30 if queue_length >= 10 else 10
+
+        # If target has changed, record the time
+        if new_target > self.target_workers:
+            if self.scale_up_time is None:
+                self.scale_up_time = seconds
+            self.target_workers = new_target
+        elif new_target < self.target_workers:
+            # Scale down happens immediately
+            self.target_workers = new_target
+            self.current_workers = new_target
+            self.scale_up_time = None
+
+        # If we're scaling up and enough time has passed
+        if (
+            self.scale_up_time is not None
+            and seconds >= self.scale_up_time + self.startup_delay
+        ):
+            self.current_workers = self.target_workers
+            self.scale_up_time = None
+
+        return self.current_workers
+
+
 def main():
     # Generate 4 minutes of spiky traffic (2 min active, 2 min silent)
     message_traffic = generate_spiky_traffic(
@@ -81,8 +114,12 @@ def main():
         spike_interval=20,
     )
 
+    scaler = WorkerScaling(startup_delay=20)  # 20 second worker startup time
     params = SimulationParams(
-        num_workers=45, service_time=5, duration=len(message_traffic)
+        initial_workers=10,
+        service_time=5,
+        duration=len(message_traffic),
+        worker_scaling_func=scaler,
     )
     simulation = CelerySimulation(params, message_traffic)
     simulation.run()
