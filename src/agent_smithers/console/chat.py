@@ -64,10 +64,10 @@ class ChatSession:
                 )
 
             except Exception as e:
-                print_system(f"Error: {str(e)}")
+                print_system(f"Error: {e!s}")
 
 
-def start_chat_session(api_key: Optional[str] = None):
+def start_chat_session(api_key: str | None = None):
     try:
         session = ChatSession(api_key)
         session.chat_loop()

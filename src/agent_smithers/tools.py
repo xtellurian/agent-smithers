@@ -3,8 +3,15 @@ from io import BytesIO
 
 import matplotlib.pyplot as plt
 from anthropic.types import ToolUseBlock
-from latency_modelling.example import WorkerScaling, generate_spiky_traffic
-from latency_modelling.simulation import CelerySimulation, SimulationParams
+
+from agent_smithers.latency_modelling.example import (
+    WorkerScaling,
+    generate_spiky_traffic,
+)
+from agent_smithers.latency_modelling.simulation import (
+    CelerySimulation,
+    SimulationParams,
+)
 
 definitions = [
     {
