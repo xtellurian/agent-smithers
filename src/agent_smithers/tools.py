@@ -1,6 +1,6 @@
 import base64
 import datetime
-import pytz
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from io import BytesIO
 
 import matplotlib.pyplot as plt
@@ -166,8 +166,8 @@ def get_simulation_plot() -> str:
 def current_datetime(*, timezone: str | None = None) -> str:
     """Get current datetime, optionally in the specified timezone"""
     try:
-        tz = pytz.timezone(timezone) if timezone else None
-    except pytz.exceptions.UnknownTimeZoneError:
+        tz = ZoneInfo(timezone) if timezone else None
+    except ZoneInfoNotFoundError:
         return f"Unknown timezone: {timezone}"
 
     dt = datetime.datetime.now(tz or datetime.UTC)

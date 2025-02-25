@@ -11,6 +11,7 @@ def main():
     args = parser.parse_args()
 
     if args.chat:
+        print("Type 'exit' to end chat session")
         start_chat_session(api_key=args.api_key)
     else:
         print("Use --chat to start a chat session")
