@@ -1,7 +1,7 @@
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Callable
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import pandas as pd
