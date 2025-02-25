@@ -1,7 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from simulation import CelerySimulation, SimulationParams
+
+from agent_smithers.latency_modelling.simulation import (
+    CelerySimulation,
+    SimulationParams,
+)
 
 
 def generate_message_traffic(duration_seconds: int = 3600) -> pd.Series:

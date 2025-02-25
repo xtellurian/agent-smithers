@@ -1,4 +1,6 @@
 import base64
+import datetime
+import pytz
 from io import BytesIO
 
 import matplotlib.pyplot as plt
@@ -77,6 +79,20 @@ definitions = [
             "required": [],
         },
     },
+    {
+        "name": "current_datetime",
+        "description": "Get the current datetime in ISO format, optionally with timezone",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "timezone": {
+                    "type": "string",
+                    "description": "Optional timezone name (e.g. 'UTC', 'US/Pacific')",
+                }
+            },
+            "required": [],
+        },
+    },
 ]
 
 # Store latest simulation for plotting
@@ -147,12 +163,25 @@ def get_simulation_plot() -> str:
     image_base64 = base64.b64encode(buffer.getvalue()).decode()
     return f"data:image/png;base64,{image_base64}"
 
+def current_datetime(*, timezone: str | None = None) -> str:
+    """Get current datetime, optionally in the specified timezone"""
+    try:
+        tz = pytz.timezone(timezone) if timezone else None
+    except pytz.exceptions.UnknownTimeZoneError:
+        return f"Unknown timezone: {timezone}"
+
+    dt = datetime.datetime.now(tz or datetime.UTC)
+    return dt.isoformat()
+
+
 def executor(block: ToolUseBlock):
     if block.name == "get_weather":
         return get_weather(**block.input)
-    elif block.name == "simulate_celery_latency":
+    if block.name == "simulate_celery_latency":
         return simulate_celery_latency(**block.input)
-    elif block.name == "get_simulation_plot":
+    if block.name == "get_simulation_plot":
         return get_simulation_plot()
+    if block.name == "current_datetime":
+        return current_datetime(**block.input)
 
     return None

@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 import anthropic
 from rich.console import Console
@@ -7,6 +6,7 @@ from rich.prompt import Prompt
 
 from agent_smithers.env import ANTHROPIC_API_KEY
 from agent_smithers.printer import print_assistant, print_system, print_user
+from agent_smithers.tools import definitions, executor
 
 
 class ChatSession:
@@ -51,7 +51,45 @@ class ChatSession:
                         ],
                         {"role": "user", "content": user_input},
                     ],
+                    tools=definitions,
                 )
+
+                # Handle tool calls if present
+                for content in response.content:
+                    if content.type == "tool_use":
+                        print_system(f"Using tool: {content.name}")
+                        tool_response = executor(content)
+                        print_system(f"Tool response: {tool_response}")
+
+                        # Send tool result back to get final response
+                        response = self.client.messages.create(
+                            model="claude-3-opus-20240229",
+                            max_tokens=1024,
+                            messages=[
+                                *[
+                                    {
+                                        "role": "user"
+                                        if msg["role"] == "user"
+                                        else "assistant",
+                                        "content": msg["content"],
+                                    }
+                                    for msg in self.conversation
+                                ],
+                                {"role": "user", "content": user_input},
+                                {"role": "assistant", "content": response.content},
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        {
+                                            "type": "tool_result",
+                                            "tool_use_id": content.id,
+                                            "content": str(tool_response),
+                                        }
+                                    ],
+                                },
+                            ],
+                            tools=definitions,
+                        )
 
                 assistant_response = response.content[0].text
                 print_assistant(assistant_response)

@@ -5,7 +5,6 @@ from datetime import datetime
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from charts import create_queue_dynamics_plot
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -14,6 +13,8 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
+
+from agent_smithers.latency_modelling.charts import create_queue_dynamics_plot
 
 
 @dataclass
