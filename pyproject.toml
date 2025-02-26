@@ -25,6 +25,7 @@ dependencies = [
     "pandas>=2.2.3",
     "seaborn>=0.13.2",
     "notion-client>=2.3.0",
+    "PyGithub>=2.3.0",
 ]
 
 [tool.hatch.build.targets.wheel]
