@@ -3,8 +3,6 @@
 import datetime
 from zoneinfo import ZoneInfo
 
-import pytest
-
 from agent_smithers.tools import current_datetime
 
 
