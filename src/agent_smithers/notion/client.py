@@ -1,6 +1,6 @@
 """Notion API client implementation."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from notion_client import AsyncClient, Client
 from pydantic import BaseModel
@@ -26,7 +26,7 @@ class NotionClient:
         self._client = Client(auth=config.auth_token)
         self._async_client = AsyncClient(auth=config.auth_token)
 
-    def get_page(self, page_id: str) -> Dict[str, Any]:
+    def get_page(self, page_id: str) -> dict[str, Any]:
         """Get a page by its ID.
 
         Args:
@@ -37,7 +37,7 @@ class NotionClient:
         """
         return self._client.pages.retrieve(page_id)
 
-    def search_pages(self, query: str) -> List[Dict[str, Any]]:
+    def search_pages(self, query: str) -> list[dict[str, Any]]:
         """Search for pages matching a query.
 
         Args:
