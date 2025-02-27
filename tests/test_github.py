@@ -1,6 +1,7 @@
 """Tests for the GitHub API integration."""
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 from github import ContentFile, Organization, Repository
 

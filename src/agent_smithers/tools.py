@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import matplotlib.pyplot as plt
 from anthropic.types import ToolUseBlock
 
+from agent_smithers import env
 from agent_smithers.github.client import GitHubClient, GitHubClientConfig
 from agent_smithers.latency_modelling.example import (
     WorkerScaling,
@@ -214,7 +215,9 @@ def current_datetime(*, timezone: str | None = None) -> str:
     dt = datetime.datetime.now(tz or datetime.UTC)
     return dt.isoformat()
 
-github_client = GitHubClient(config=GitHubClientConfig(organization="orkestra-energy"))
+github_client = GitHubClient(
+    config=GitHubClientConfig(organization=env.GITHUB_ORGANIZATION)
+)
 
 
 def search_github(*, query: str) -> str:
