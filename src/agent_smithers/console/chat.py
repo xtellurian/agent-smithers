@@ -36,62 +36,72 @@ class ChatSession:
             print_user(user_input)
 
             try:
-                response = self.client.messages.create(
-                    model="claude-3-opus-20240229",
-                    max_tokens=1024,
-                    messages=[
-                        *[
-                            {
-                                "role": "user"
-                                if msg["role"] == "user"
-                                else "assistant",
-                                "content": msg["content"],
-                            }
-                            for msg in self.conversation
-                        ],
-                        {"role": "user", "content": user_input},
+                # Create initial message
+                messages = [
+                    *[
+                        {
+                            "role": "user" if msg["role"] == "user" else "assistant",
+                            "content": msg["content"],
+                        }
+                        for msg in self.conversation
                     ],
-                    tools=definitions,
-                )
+                    {"role": "user", "content": user_input},
+                ]
 
-                # Handle tool calls if present
-                for content in response.content:
-                    if content.type == "tool_use":
-                        print_system(f"Using tool: {content.name}")
-                        tool_response = executor(content)
-                        print_system(f"Tool response: {tool_response}")
+                # Process tool calls until Claude no longer needs to use tools
+                tool_calls_remain = True
+                final_assistant_message = None
 
-                        # Send tool result back to get final response
-                        response = self.client.messages.create(
-                            model="claude-3-opus-20240229",
-                            max_tokens=1024,
-                            messages=[
-                                *[
-                                    {
-                                        "role": "user"
-                                        if msg["role"] == "user"
-                                        else "assistant",
-                                        "content": msg["content"],
-                                    }
-                                    for msg in self.conversation
-                                ],
-                                {"role": "user", "content": user_input},
-                                {"role": "assistant", "content": response.content},
+                while tool_calls_remain:
+                    response = self.client.messages.create(
+                        model="claude-3-opus-20240229",
+                        max_tokens=1024,
+                        messages=messages,
+                        tools=definitions,
+                    )
+
+                    # Check if the response contains tool calls
+                    has_tool_use = False
+                    tool_results = []
+
+                    for content in response.content:
+                        if content.type == "tool_use":
+                            has_tool_use = True
+                            print_system(
+                                f"Using tool: {content.name} with params {content.input}"
+                            )
+                            tool_response = executor(content)
+                            print_system(f"Tool response: {tool_response}")
+
+                            # Add tool result to send back
+                            tool_results.append(
                                 {
-                                    "role": "user",
-                                    "content": [
-                                        {
-                                            "type": "tool_result",
-                                            "tool_use_id": content.id,
-                                            "content": str(tool_response),
-                                        }
-                                    ],
-                                },
-                            ],
-                            tools=definitions,
-                        )
+                                    "type": "tool_result",
+                                    "tool_use_id": content.id,
+                                    "content": str(tool_response),
+                                }
+                            )
 
-                assistant_response = response.content[0].text
+                    if has_tool_use:
+                        # Add the assistant's response and tool results to the message history
+                        messages.append(
+                            {"role": "assistant", "content": response.content}
+                        )
+                        messages.append({"role": "user", "content": tool_results})
+                    else:
+                        # No more tool calls, stop the loop
+                        tool_calls_remain = False
+                        final_assistant_message = response.content
+                        break
+
+                # Extract the text response after all tools have been used
+                assistant_response = "".join(
+                    [
+                        content.text
+                        for content in final_assistant_message
+                        if content.type == "text"
+                    ]
+                )
                 print_assistant(assistant_response)
 
                 self.conversation.extend(

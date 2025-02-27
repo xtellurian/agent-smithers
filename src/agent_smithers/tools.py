@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import matplotlib.pyplot as plt
 from anthropic.types import ToolUseBlock
 
+from agent_smithers.github.client import GitHubClient, GitHubClientConfig
 from agent_smithers.latency_modelling.example import (
     WorkerScaling,
     generate_spiky_traffic,
@@ -81,7 +82,7 @@ definitions = [
     },
     {
         "name": "current_datetime",
-        "description": "Get the current datetime in ISO format, optionally with timezone",
+        "description": "Get current datetime in ISO format with optional timezone",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -91,6 +92,46 @@ definitions = [
                 }
             },
             "required": [],
+        },
+    },
+    {
+        "name": "search_github",
+        "description": "Search GitHub repositories matching a query within an organization",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query for repositories",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "search_github_code",
+        "description": "Search for code within a specific repository",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repository": {
+                    "type": "string",
+                    "description": "The repository name",
+                },
+                "query": {
+                    "type": "string",
+                    "description": "The search query for code",
+                },
+            },
+            "required": ["repository", "query"],
+        },
+    },
+    {
+        "name": "list_github_repos",
+        "description": "List all GitHub repositories accessible",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
         },
     },
 ]
@@ -173,8 +214,79 @@ def current_datetime(*, timezone: str | None = None) -> str:
     dt = datetime.datetime.now(tz or datetime.UTC)
     return dt.isoformat()
 
+github_client = GitHubClient(config=GitHubClientConfig(organization="orkestra-energy"))
+
+
+def search_github(*, query: str) -> str:
+    """Search GitHub repositories using the provided query"""
+    try:
+        repos = github_client.search_repositories(query)
+
+        if not repos:
+            return "No repositories found matching the query."
+
+        results = [
+            f"- {repo.full_name}\n"
+            f"  Description: {repo.description or 'No description'}\n"
+            f"  Stars: {repo.stargazers_count}, Forks: {repo.forks_count}\n"
+            f"  URL: {repo.html_url}"
+            for repo in repos[:5]  # Limit to top 5 results
+        ]
+
+        return "Top matching repositories:\n\n" + "\n\n".join(results)
+    except Exception as e:
+        return f"Error searching GitHub: {e!s}"
+
+
+def search_github_code(*, repository: str, query: str) -> str:
+    """Search for code within a GitHub repository"""
+    try:
+        results = github_client.search_code_in_repository(repository, query)
+
+        if not results:
+            return "No code matches found in the repository."
+
+        formatted_results = []
+        for result in results:
+            formatted_results.append(
+                f"File: {result['path']}\n"
+                f"URL: {result['url']}\n"
+                "```\n"
+                f"{result['content']}\n"
+                "```\n"
+            )
+
+        return "Matching code:\n\n" + "\n".join(formatted_results)
+    except Exception as e:
+        return f"Error searching GitHub code: {e!s}"
+
+
+def list_github_repos() -> str:
+    """List all GitHub repositories accessible"""
+    try:
+        repos = github_client.list_accessible_repositories()
+
+        if not repos:
+            return "No accessible repositories found."
+
+        results = [
+            f"- {repo.full_name}\n"
+            f"  Description: {repo.description or 'No description'}\n"
+            f"  URL: {repo.html_url}"
+            for repo in repos[:10]  # Limit to top 10 results
+        ]
+
+        return "Accessible repositories:\n\n" + "\n\n".join(results)
+    except Exception as e:
+        return f"Error listing GitHub repositories: {e!s}"
 
 def executor(block: ToolUseBlock):
+    if block.name == "list_github_repos":
+        return list_github_repos(**block.input)
+    if block.name == "search_github_code":
+        return search_github_code(**block.input)
+    if block.name == "search_github":
+        return search_github(**block.input)
     if block.name == "get_weather":
         return get_weather(**block.input)
     if block.name == "simulate_celery_latency":
